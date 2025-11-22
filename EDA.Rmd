@@ -1,0 +1,222 @@
+---
+title: "Project 506_EDA"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+```{r}
+library(readr)
+library(tidyverse)
+
+file_path <- "C:/Users/kiara/Desktop/506/Global EV Data 2024.csv"
+
+ev <- read_csv(file_path)
+
+glimpse(ev)
+```
+
+```{r}
+install.packages("skimr")
+
+```
+
+```{r}
+# Filter to Europe
+ev_europe <- ev %>% 
+  filter(region == "Europe")
+```
+
+```{r}
+# Missing values
+ev_europe %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "missing_count")
+
+```
+
+```{r}
+# Clean data
+ev_europe_clean <- ev_europe %>%
+  drop_na(value)
+```
+
+```{r}
+# Select historical EV sales/stock for cars
+ev_hist <- ev_europe_clean %>%
+  filter(category == "Historical",
+         mode == "Cars",
+         parameter %in% c("EV sales", "EV stock"))
+
+glimpse(ev_hist)
+
+
+```
+
+```{r}
+# Outliers
+outliers <- ev_hist %>%
+  group_by(parameter) %>%
+  mutate(
+    q1 = quantile(value, 0.25),
+    q3 = quantile(value, 0.75),
+    iqr = q3 - q1,
+    lower = q1 - 1.5*iqr,
+    upper = q3 + 1.5*iqr,
+    outlier_flag = value < lower | value > upper
+  ) %>%
+  filter(outlier_flag)
+
+outliers
+
+
+```
+
+```{r}
+# Summary stats
+summary(ev_europe$value)
+
+# Mean, median, total by year
+yearly_stats_europe <- ev_europe |>
+  group_by(year) |>
+  summarise(mean_value = mean(value),
+            median_value = median(value),
+            total_value = sum(value))
+```
+
+```{r}
+# Trend plot
+ggplot(ev_hist, aes(year, value, color = parameter)) +
+  geom_line(linewidth = 1.2) +
+  labs(title = "Europe: EV Sales and Stock Over Time",
+       x = "Year", y = "Value")
+```
+
+```{r}
+ggplot(ev_europe, aes(x = year, y = value)) +
+  geom_line(color = "green") +
+  geom_point() +
+  labs(title = "EV Sales in Europe (2010-2024)",
+       x = "Year",
+       y = "EV Sales (Vehicles)") +
+  theme_minimal()
+```
+
+```{r}
+# Powertrain plot
+ggplot(ev_hist, aes(year, value, color = powertrain)) +
+  geom_line(linewidth = 1.2) +
+  facet_wrap(~parameter, scales = "free_y") +
+  labs(title = "Europe: EV Metrics by Powertrain",
+       x = "Year", y = "Value")
+```
+
+```{r}
+# Log Distribution
+ggplot(ev_hist %>% filter(value > 0),
+       aes(x = log10(value))) +
+  geom_histogram(bins = 30, fill = "steelblue") +
+  facet_wrap(~ parameter) +
+  labs(
+    title = "Log10 Distribution of EV Sales and Stock",
+    x = "log10(Value)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Log-scale distribution
+ggplot(ev_hist %>% filter(value > 0),
+       aes(log10(value))) +
+  geom_histogram(bins = 30, fill = "orange") +
+  facet_wrap(~parameter) +
+  labs(title = "Log10 Distribution of EV Values (Europe)")
+
+```
+
+```{r}
+ggplot(ev_europe, aes(x = year, y = value)) +
+  geom_line(color = "green") +
+  geom_point() +
+  labs(title = "EV Sales in Europe (2010-2024)",
+       x = "Year",
+       y = "EV Sales (Vehicles)") +
+  theme_minimal()
+
+```
+
+```{r}
+# Aggrefate Europe EV Sales Overtime
+ev_total <- ev_europe_clean %>%
+  filter(category == "Historical",
+         mode == "Cars",
+         parameter %in% c("EV sales", "EV stock")) %>%
+  group_by(year, parameter) %>%
+  summarise(total_value = sum(value), .groups = "drop")
+
+ggplot(ev_total, aes(x = year, y = total_value, color = parameter)) +
+  geom_line(size = 1.2) +
+  labs(title = "Total EV Sales and Stock in Europe",
+       x = "Year",
+       y = "Value",
+       color = "Metric") +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal()
+
+```
+
+```{r}
+# Growth Rate Plot
+ev_growth <- ev_total %>%
+  filter(parameter == "EV sales") %>%
+  arrange(year) %>%
+  mutate(growth_rate = (total_value / lag(total_value) - 1) * 100)
+
+ggplot(ev_growth, aes(x = year, y = growth_rate)) +
+  geom_line(size = 1.2, color = "steelblue") +
+  labs(title = "EV Sales Year-over-Year Growth in Europe",
+       x = "Year",
+       y = "Growth Rate (%)") +
+  theme_minimal()
+
+
+```
+
+```{r}
+# Powertrain Share Over time 
+ev_share <- ev_hist %>%
+  filter(parameter == "EV sales") %>%
+  group_by(year) %>%
+  mutate(total_sales = sum(value),
+         share = value / total_sales)
+
+ggplot(ev_share, aes(x = year, y = share, fill = powertrain)) +
+  geom_area(alpha = 0.8) +
+  labs(title = "BEV vs PHEV Share of EV Sales in Europe",
+       x = "Year",
+       y = "Share",
+       fill = "Powertrain") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+
+
+```
+
+```{r}
+manual_log_fc <- manual_log_fit |> 
+  forecast(h = 1) |>
+  mutate(.mean = exp(.mean),
+         .lower = exp(.lower),
+         .upper = exp(.upper))
+
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
