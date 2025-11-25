@@ -1,4 +1,4 @@
-# From Rapid Growth to Reliable Forecasts: Solving Europe’s EV Adoption Challenges
+# Forecasting Europe’s EV Sales: A Time Series Approach
 
 #### ADS 506: Applied Time Series Analysis
 #### Team: Luisa Gonzalez, Paul Matta, Kiara Paz
