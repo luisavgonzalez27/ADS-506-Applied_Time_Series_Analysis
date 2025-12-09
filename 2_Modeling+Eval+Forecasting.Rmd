@@ -134,7 +134,7 @@ acc_models
 ```{r}
 #out of sample accuracy (using training data set for modeling and test data set for accuracy)
 
-train_models <- train %>% #training from the entire data, not from my training set 
+TRAIN_models <- train %>% #training from the entire data, not from my training set 
   model(
     arima_raw = ARIMA(sales),
     arima_log = ARIMA(log(sales)),
@@ -144,7 +144,16 @@ train_models <- train %>% #training from the entire data, not from my training s
     tslm_log  = TSLM(log(sales) ~ trend())
   )
 
-fc_test <- train_models %>%
+
+# View the fitted models
+TRAIN_models
+
+#transpose for easier inspection
+TRAIN_models_t <- TRAIN_models |> t()
+TRAIN_models_t
+
+
+fc_test <- TRAIN_models %>%
   forecast(new_data = test)
 
 fc_test
@@ -165,9 +174,9 @@ best_models
 #now fit the data set with the best model per powertrain  [BEV, FCEV, and PHEV]
 final_models <- ev_ts_sales %>%
   model(
-    bev_best  = ARIMA(sales),   # replace with your winner
-    phev_best = TSLM(sales),     # replace with your winner
-    fcev_best = ARIMA(sales ~ trend())   # replace with your winner
+    bev_best  = ARIMA(sales),  
+    phev_best = TSLM(sales),    
+    fcev_best = ARIMA(sales ~ trend())   
   )
 
 
@@ -181,6 +190,36 @@ final_fc
 
 #Plot the forecast 
 autoplot(final_fc, ev_ts_sales)
+
+
+# Final forecast plot with improved visualization
+autoplot(final_fc, ev_ts_sales) +
+  facet_wrap(~powertrain, scales = "free_y") +   # separate panels with independent y-axes
+  geom_vline(xintercept = 2023, linetype = "dashed", color = "gray50") +  # forecast start line
+  annotate("text", x = 2023, y = Inf, label = "Forecast Start", 
+           vjust = 2, hjust = 1.1, size = 3, color = "gray40") +           # annotation
+  scale_color_manual(
+    name = "Model",
+    values = c(
+      bev_best = "red",
+      fcev_best = "green",
+      phev_best = "blue"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Confidence Level",
+    values = c("80%" = "lightgray", "95%" = "darkgray")
+  ) +
+  labs(
+    title = "EV Sales Forecast by Powertrain",
+    y = "Sales",
+    x = "Year"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
 
 ```
 
