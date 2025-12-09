@@ -1,0 +1,185 @@
+---
+title: "Preprocessing"
+output: html_document
+date: "2025-11-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pre-processing
+
+```{r}
+library(readr)
+library(tidyverse)
+library(tsibble)
+library(fable)
+
+file_path <- "C:/Users/kiara/Documents/506/Global EV Data 2024.csv"
+
+ev <- read_csv(file_path)
+
+glimpse(ev)
+```
+
+```{r}
+# standardize
+ev <- ev %>% clean_names()
+```
+
+```{r}
+# year should be numeric
+ev <- ev %>%
+  mutate(
+    year = as.numeric(year),
+    value = as.numeric(value)
+  )
+```
+
+```{r}
+# Missing values
+ev %>% 
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "missing_count")
+```
+
+```{r}
+# check for duplicates
+ev %>% 
+  summarise(duplicate_rows = sum(duplicated(.)))
+```
+
+```{r}
+# explore regions
+ev %>% 
+  count(region, sort = TRUE)
+```
+
+```{r}
+# explore number of years per region
+ev %>% 
+  group_by(region) %>%
+  summarise(
+    min_year = min(year),
+    max_year = max(year),
+    n_years = n_distinct(year),
+    n_records = n()
+  ) %>%
+  arrange(desc(n_years))
+```
+
+```{r}
+# comparison of regions
+ev %>%
+  group_by(region, year) %>%
+  summarise(total_value = sum(value, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = year, y = total_value, color = region)) +
+  geom_line() +
+  labs(
+    title = "EV Metrics Across All Regions",
+    x = "Year",
+    y = "Total Value (All Parameters Combined)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ev %>%
+  group_by(region) %>%
+  summarise(
+    years_available = n_distinct(year),
+    min_year = min(year),
+    max_year = max(year),
+    missing_values = sum(is.na(value))
+  ) %>%
+  arrange(desc(years_available))
+
+```
+
+```{r}
+# Outliers
+outliers <- ev_hist %>%
+  group_by(parameter) %>%
+  mutate(
+    q1 = quantile(value, 0.25),
+    q3 = quantile(value, 0.75),
+    iqr = q3 - q1,
+    lower = q1 - 1.5*iqr,
+    upper = q3 + 1.5*iqr,
+    outlier_flag = value < lower | value > upper
+  ) %>%
+  filter(outlier_flag)
+
+outliers
+```
+
+```{r}
+# column satndardization 
+ev <- ev %>%
+  clean_names() %>%                    # standardize column names
+  mutate(
+    year  = as.integer(year),          # ensure numeric year
+    value = as.numeric(value)          # ensure numeric values
+  )
+
+# keep only necessary columns
+ev_filtered <- ev %>%
+  filter(
+    parameter %in% c("EV sales", "EV stock"),
+    powertrain %in% c("BEV", "PHEV")
+  )
+
+```
+
+```{r}
+# outlier range inspection
+ggplot(ev, aes(x = year, y = value)) +
+  geom_point() +
+  scale_y_log10()
+```
+
+```{r}
+# original, global data
+ev <- read_csv(file_path) |>
+  clean_names() |>
+  mutate(
+    year  = as.integer(year),
+    value = as.numeric(value)
+  )
+
+```
+
+```{r}
+# filter to Europe
+ev_europe <- ev |>
+  filter(region == "Europe",
+         parameter %in% c("EV sales", "EV stock"))
+```
+
+```{r}
+# log transformation prep
+ev_europe <- ev_europe |>
+  mutate(log_value = log10(value))
+```
+
+```{r}
+# plot
+ggplot(ev_europe,
+       aes(x = year,
+           y = log_value,
+           colour = parameter,
+           group = interaction(parameter, year))) +
+  geom_line() +
+  labs(
+    title = "Log-Transformed EV Sales and Stock in Europe",
+    x = "Year",
+    y = "log10(value)"
+  ) +
+  theme_minimal()
+```
+
+```{}
+```

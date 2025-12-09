@@ -1,0 +1,228 @@
+---
+title: "Project 506_EDA"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+```{r}
+library(readr)
+library(tidyverse)
+
+file_path <- "C:/Users/kiara/Documents/506/Global EV Data 2024.csv"
+
+ev <- read_csv(file_path)
+```
+
+```{r}
+# Filter to Europe
+ev_europe <- ev %>% 
+  filter(region == "Europe")
+```
+
+```{r}
+# Select historical EV sales/stock for cars
+ev_hist <- ev_europe_clean %>%
+  filter(category == "Historical",
+         mode == "Cars",
+         parameter %in% c("EV sales", "EV stock"))
+
+glimpse(ev_hist)
+```
+
+```{r}
+#manual_log_fc <- manual_log_fit |> 
+ # forecast(h = 1) |>
+  #mutate(.mean = exp(.mean),
+   #      .lower = exp(.lower),
+       #  .upper = exp(.upper))
+
+```
+
+```{r}
+#Convert to a Time Series Format for EV Europe Sales 
+# Install tsibble 
+#install.packages #("tsibble") #comment out after running it once 
+
+# Load applicable packages 
+library(tsibble)
+library(fable)
+library(fabletools)
+library(feasts)
+library(dplyr)  
+
+# Aggregate sales by year and powertrain
+ev_ts_sales <- ev %>%
+  filter(
+    region == "Europe",
+    category == "Historical",
+    parameter == "EV sales",
+    unit == "Vehicles"
+  ) %>%
+  group_by(year, powertrain) %>%
+  summarise(sales = sum(value), .groups = "drop") %>%
+  as_tsibble(index = year, key = powertrain)
+
+ev_ts_sales
+
+#Build a simple auto arima model 
+arima_models <- ev_ts_sales |>
+  model(auto_arima =ARIMA(sales)) #BEV, FCEV and PHEV (can extract at any time)
+
+# Unique powertrains
+powertrains <- unique(ev_ts_sales$powertrain)
+
+# Loop over powertrains
+for(pt in powertrains){
+  
+  cat("\n=== Residual diagnostics for", pt, "===\n")
+  
+  # Filter tsibble for this powertrain
+  ts_series <- ev_ts_sales %>% filter(powertrain == pt)
+  
+  # Fit ARIMA
+  arima_model <- ts_series %>% model(auto_arima = ARIMA(sales))
+  
+  # Plot residuals - must wrap in print() inside loop
+  print(ggtime::gg_tsresiduals(arima_model))
+}
+
+
+```
+
+```{r}
+
+train <- ev_ts_sales |>
+  filter(year <= 2022)
+
+test <- ev_ts_sales |>
+  filter( year > 2022)
+### In sample Accuracy 
+
+# Build multi-model mable
+train_models <-  ev_ts_sales %>% #training from the entire data, not from my training set 
+  model(
+    arima_raw = ARIMA(sales),
+    arima_log = ARIMA(log(sales)),
+    ets_raw   = ETS(sales),
+    ets_log   = ETS(log(sales)),
+    tslm_raw  = TSLM(sales ~ trend()),             # no seasonal term for annual data
+    tslm_log  = TSLM(log(sales) ~ trend())
+  )
+
+# View the fitted models
+train_models
+
+#transpose for easier inspection
+train_models_t <- train_models |> t()
+train_models_t
+
+#accuraccy
+
+acc_models <- train_models |>
+  accuracy() |>
+  arrange(RMSE)
+
+acc_models
+
+
+
+```
+
+```{r}
+#out of sample accuracy (using training data set for modeling and test data set for accuracy)
+
+TRAIN_models <- train %>% #training from the entire data, not from my training set 
+  model(
+    arima_raw = ARIMA(sales),
+    arima_log = ARIMA(log(sales)),
+    ets_raw   = ETS(sales),
+    ets_log   = ETS(log(sales)),
+    tslm_raw  = TSLM(sales ~ trend()),             # no seasonal term for annual data
+    tslm_log  = TSLM(log(sales) ~ trend())
+  )
+
+
+# View the fitted models
+TRAIN_models
+
+#transpose for easier inspection
+TRAIN_models_t <- TRAIN_models |> t()
+TRAIN_models_t
+
+
+fc_test <- TRAIN_models %>%
+  forecast(new_data = test)
+
+fc_test
+
+acc_test <- fc_test %>%
+  accuracy(test) %>%
+  arrange(powertrain, RMSE)
+
+acc_test
+
+#grouping models by best RMSE for each powertrain 
+best_models <- acc_test %>%
+  group_by(powertrain) %>%
+  slice_min(RMSE)
+
+best_models
+
+#now fit the data set with the best model per powertrain  [BEV, FCEV, and PHEV]
+final_models <- ev_ts_sales %>%
+  model(
+    bev_best  = ARIMA(sales),  
+    phev_best = TSLM(sales),    
+    fcev_best = ARIMA(sales ~ trend())   
+  )
+
+
+#Final. forecast for the next 7 years
+future <- new_data(ev_ts_sales, n = 7)   # 2024–2030
+
+final_fc <- final_models %>%
+  forecast(future)
+
+final_fc
+
+#Plot the forecast 
+autoplot(final_fc, ev_ts_sales)
+
+
+# Final forecast plot with improved visualization
+autoplot(final_fc, ev_ts_sales) +
+  facet_wrap(~powertrain, scales = "free_y") +   # separate panels with independent y-axes
+  geom_vline(xintercept = 2023, linetype = "dashed", color = "gray50") +  # forecast start line
+  annotate("text", x = 2023, y = Inf, label = "Forecast Start", 
+           vjust = 2, hjust = 1.1, size = 3, color = "gray40") +           # annotation
+  scale_color_manual(
+    name = "Model",
+    values = c(
+      bev_best = "red",
+      fcev_best = "green",
+      phev_best = "blue"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Confidence Level",
+    values = c("80%" = "lightgray", "95%" = "darkgray")
+  ) +
+  labs(
+    title = "EV Sales Forecast by Powertrain",
+    y = "Sales",
+    x = "Year"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+  )
+
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

@@ -1,27 +1,7 @@
 ---
-title: "Project 506_EDA"
+title: "EDA"
 output: html_notebook
 ---
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
-
-```{r}
-library(readr)
-library(tidyverse)
-
-file_path <- "C:/Users/kiara/Desktop/506/Global EV Data 2024.csv"
-
-ev <- read_csv(file_path)
-
-glimpse(ev)
-```
-
-```{r}
-install.packages("skimr")
-
-```
 
 ```{r}
 # Filter to Europe
@@ -127,28 +107,6 @@ ggplot(ev_hist %>% filter(value > 0),
     y = "Count"
   ) +
   theme_minimal()
-
-```
-
-```{r}
-# Log-scale distribution
-ggplot(ev_hist %>% filter(value > 0),
-       aes(log10(value))) +
-  geom_histogram(bins = 30, fill = "orange") +
-  facet_wrap(~parameter) +
-  labs(title = "Log10 Distribution of EV Values (Europe)")
-
-```
-
-```{r}
-ggplot(ev_europe, aes(x = year, y = value)) +
-  geom_line(color = "green") +
-  geom_point() +
-  labs(title = "EV Sales in Europe (2010-2024)",
-       x = "Year",
-       y = "EV Sales (Vehicles)") +
-  theme_minimal()
-
 ```
 
 ```{r}
@@ -207,16 +165,3 @@ ggplot(ev_share, aes(x = year, y = share, fill = powertrain)) +
 
 
 ```
-
-```{r}
-manual_log_fc <- manual_log_fit |> 
-  forecast(h = 1) |>
-  mutate(.mean = exp(.mean),
-         .lower = exp(.lower),
-         .upper = exp(.upper))
-
-```
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
