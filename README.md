@@ -8,13 +8,17 @@
 This project forecasts electric vehicle (EV) adoption in Europe using time-series models including ETS, ARIMA, and TSLM. The analysis follows a Problem–Solution storytelling framework to understand nonlinear EV growth, diagnose modeling challenges, and develop reliable forecasting methods that support industry and policy decision-making.
 
 # Situation
-Electric vehicle adoption is growing worldwide, but the pace, stability, and drivers of growth vary greatly by region. The full dataset includes 54 global regions, each shaped by different policy incentives, charging-infrastructure maturity, and economic conditions.
-To maintain analytical consistency, we narrowed our focus to Europe, which:
-- Has one of the fastest-growing EV markets globally
-- Operates under aligned policy frameworks (EU emissions targets, subsidy structures)
+EV adoption is accelerating globally, but the pace, stability, and policy context vary widely across regions. The original dataset includes 54 global regions, each shaped by different:
+- EV incentives and subsidies
+- Charging-infrastructure maturity
+- Economic and regulatory environments
+
+To maintain a consistent analytical foundation, we focused on Europe, because it:
+- Has one of the fastest-growing EV markets worldwide
+- Operates under aligned EU-level policy frameworks
 - Contains a complete time series with no missing values
-- Exhibits clear exponential adoption patterns suitable for time-series modeling
-Cross-regional exploration (Figure 1) revealed China growing the fastest globally, followed by Europe and the United States. This context motivated our regional focus.
+- Exhibits clear exponential adoption patterns suitable for time-series analysis
+Cross-regional EDA showed China growing the fastest, followed by Europe and the U.S., reinforcing Europe as a meaningful and policy-coherent modeling target.
 
 # Problem 
 Despite strong growth, Europe’s EV market presents several modeling challenges:
