@@ -18,6 +18,7 @@ To maintain a consistent analytical foundation, we focused on Europe, because it
 - Operates under aligned EU-level policy frameworks
 - Contains a complete time series with no missing values
 - Exhibits clear exponential adoption patterns suitable for time-series analysis
+
 Cross-regional EDA showed China growing the fastest, followed by Europe and the U.S., reinforcing Europe as a meaningful and policy-coherent modeling target.
 
 # Problem 
